@@ -1,0 +1,42 @@
+import borgarLint from '@borgar/eslint-config';
+import eslint from '@eslint/js';
+import globals from 'globals';
+import tseslint from 'typescript-eslint';
+
+export default tseslint.config(
+  {
+    files: [
+      '**/*.js',
+      '**/*.ts',
+      '**/*.mjs',
+    ],
+    ignores: [
+      'dist/*',
+    ],
+    languageOptions: {
+      globals: { ...globals.browser },
+      parserOptions: { projectService: { allowDefaultProject: [] } },
+    },
+  },
+  eslint.configs.recommended,
+  tseslint.configs.recommendedTypeChecked,
+  tseslint.configs.stylisticTypeChecked,
+  borgarLint.config.recommended,
+  borgarLint.config.stylistic({
+    commaDangle: true,
+    singleBlocks: true,
+    lineLength: 120,
+  }),
+  {
+    rules: {
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+      '@typescript-eslint/no-redundant-type-constituents': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      'no-use-before-define': 'error',
+      'no-labels': 'error',
+      'no-restricted-syntax': [ 'error', 'SwitchStatement' ],
+      'no-shadow': [ 'error', { builtinGlobals: false } ],
+    },
+  },
+);
