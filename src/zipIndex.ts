@@ -4,7 +4,7 @@ import { loadMainHeader } from './loadMainHeader.ts';
 import { parseExtra } from './parseExtra.ts';
 import { readBigUInt64LE } from './readBigUInt64LE.ts';
 import { crc32 } from './crc32.ts';
-import { decodeCp437 } from './decodeCP437.ts';
+import { decodeCp437 } from './decodeCp437.ts';
 
 export function zipIndex (data: ArrayBuffer): Map<string, ArchEntry> {
   const entryTable = new Map<string, ArchEntry>();

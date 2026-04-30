@@ -110,7 +110,7 @@ export class FileContainer {
       commentLength: 0,
       versionMadeBy: 20,
       version: 20,
-      flags: 0, // XXX: maybe set 0x800 to indicate utf8?
+      flags: 0x800,
       method,
       mtime,
       crc: checksum,
@@ -123,15 +123,8 @@ export class FileContainer {
       extra: [],
     };
     localChunks.push(
-      buildLocalHeader({
-        method,
-        mtime,
-        crc: checksum,
-        compressedSize: fileData.byteLength,
-        originalSize: raw.byteLength,
-        filenameLength: nameBytes.byteLength,
-      }),
-      nameBytes.buffer as ArrayBuffer,
+      buildLocalHeader(newEntry),
+      nameBytes.buffer,
       fileData,
     );
     entries.push({ entry: newEntry, localOffset });
@@ -141,7 +134,7 @@ export class FileContainer {
     const cdChunks: ArrayBuffer[] = [];
     for (const { entry, localOffset: entryOffset } of entries) {
       const en = new TextEncoder().encode(entry.name);
-      cdChunks.push(buildEntryHeader(entry, entryOffset, en), en.buffer as ArrayBuffer);
+      cdChunks.push(buildEntryHeader(entry, entryOffset, en), en.buffer);
     }
     const cdSize = cdChunks.reduce((sum, c) => sum + c.byteLength, 0);
 
@@ -155,7 +148,7 @@ export class FileContainer {
       pos += chunk.byteLength;
     }
 
-    this.archive = out.buffer as ArrayBuffer;
+    this.archive = out.buffer;
     this.index = zipIndex(this.archive);
   }
 
