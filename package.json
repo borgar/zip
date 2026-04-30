@@ -1,7 +1,7 @@
 {
-  "name": "zp",
+  "name": "@borgar/zip",
   "version": "1.0.0",
-  "description": "A libaray to manipulate zip files, using native implementations where available",
+  "description": "A library to manipulate zip files, using native implementations where available.",
   "type": "module",
   "source": "src/index.ts",
   "main": "dist/index.cjs",
