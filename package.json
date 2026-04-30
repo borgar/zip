@@ -30,6 +30,12 @@
     "LICENSE",
     "README.md"
   ],
+  "tsdown": {
+    "entry": "src/index.ts",
+    "format": "esm",
+    "platform": "neutral",
+    "sourcemap": true
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/borgar/zip.git"
