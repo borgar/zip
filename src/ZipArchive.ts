@@ -1,6 +1,7 @@
 import { buildEntryHeader } from './buildEntryHeader.ts';
 import { buildLocalHeader } from './buildLocalHeader.ts';
 import { buildMainHeader } from './buildMainHeader.ts';
+import type { ZMode } from './constants.ts';
 import { crc32 } from './crc32.ts';
 import { dateToDos, dosToDate } from './dosTime.ts';
 import { getDeflate } from './getDeflate.ts';
@@ -9,13 +10,44 @@ import type { ArchEntry } from './loadEntryHeader.ts';
 import { loadLocalHeader } from './loadLocalHeader.ts';
 import { zipIndex } from './zipIndex.ts';
 
-export class FileContainer {
+/** Metadata returned by {@link ZipArchive.info}. */
+export type ZipEntryInfo = {
+  /** Entry name. */
+  name: string,
+  /** `true` if the entry is a directory. */
+  isDir: boolean,
+  /** Entry comment string, or an empty string if none. */
+  comment: string,
+  /** Uncompressed size in bytes. */
+  size: number,
+  /** Last-modified time. */
+  mtime: Date,
+  /** CRC-32 checksum of the uncompressed content. */
+  crc: number,
+};
+
+/** Reads and writes ZIP archives. */
+export class ZipArchive {
   private index: Map<string, ArchEntry>;
   private archive: ArrayBuffer;
+  /**
+   * Permit using `node:zlib` for deflate compression/decompression when available.
+   */
   allowZlib: boolean = true;
+  /**
+   * Permit using the `CompressionStream` API for deflate compression/decompression when available.
+   */
   allowStreams: boolean = true;
+  /**
+   * Verify CRC32 checksums when reading files. Will cause a throws on a mismatch.
+   * By default checksums are ignored.
+   */
   checkCrc: boolean = false;
 
+  /**
+   * Creates a new container.
+   * Pass an existing ZIP `ArrayBuffer` to parse it, or omit to start an empty archive.
+   */
   constructor (archive?: ArrayBuffer) {
     if (archive) {
       this.index = zipIndex(archive);
@@ -27,11 +59,15 @@ export class FileContainer {
     }
   }
 
-  async readFile (name: string, mode: 'utf8'): Promise<string | null>;
-  async readFile (name: string, mode?: 'binary'): Promise<ArrayBuffer | null>;
-  async readFile (name: string, mode: 'utf8' | 'binary'): Promise<string | ArrayBuffer | null>;
-  async readFile (name: string, mode: 'utf8' | 'binary' = 'binary'): Promise<string | ArrayBuffer | null> {
-    const normName = name.replace(/^\.\//g, '');
+  /**
+   * Reads a file from the archive. Returns `null` if the file does not exist.
+   *
+   * @param path The filename or path of the entry to read.
+   * @param encoding Set the encoding of the return data.
+   * @throws if the file is encrypted or uses an unsupported compression method.
+   */
+  async read (path: string): Promise<ArrayBuffer | null> {
+    const normName = path.replace(/^\.\//g, '');
     const fd = this.index.get(normName);
     if (!fd) {
       return null;
@@ -65,24 +101,46 @@ export class FileContainer {
     if (fd.originalSize !== uncompressed.byteLength) {
       throw new Error('Corrupted file: Size mismatch');
     }
-    return mode === 'binary'
-      ? uncompressed
-      : new TextDecoder().decode(uncompressed);
+    return uncompressed;
   }
 
-  async writeFile (name: string, data: string, mode?: 'utf8'): Promise<void>;
-  async writeFile (name: string, data: ArrayBuffer, mode?: 'binary'): Promise<void>;
-  async writeFile (name: string, data: string | ArrayBuffer, mode?: 'utf8' | 'binary'): Promise<void> {
-    const normName = name.replace(/^\.\//g, '');
-    const raw: ArrayBuffer = (typeof data === 'string' || mode === 'utf8')
+  /**
+   * Reads a textfile from the archive. Returns `null` if the file does not exist.
+   *
+   * @param path The filename or path of the entry to read.
+   * @throws if the file is encrypted or uses an unsupported compression method.
+   */
+  async readText (path: string): Promise<string | null> {
+    const data = await this.read(path);
+    return data && new TextDecoder().decode(data);
+  }
+
+  /**
+   * Adds or replaces a file in the archive.
+   * @param path The filename or path of the entry to read.
+   * @param data The data to add to the archive.
+   * @param mode Compression mode. Defaults to `ZMODE_DEFLATE` (8), which applies deflate compression
+   *   when it reduces the file size and falls back to store otherwise. Pass `ZMODE_STORE` (0) to
+   *   store without compression.
+   */
+  async write (path: string, data: string | ArrayBuffer, mode?: ZMode) {
+    const normName = path.replace(/^\.\//g, '');
+    const raw: ArrayBuffer = (typeof data === 'string')
       ? new TextEncoder().encode(data as string).buffer as ArrayBuffer
       : data;
 
+    let fileData = raw;
+    let method = mode === 'store' ? 0 : 8;
+    if (method === 8) {
+      const compressed = await getDeflate(this.allowStreams, this.allowZlib)(raw);
+      if (compressed.byteLength < raw.byteLength) {
+        fileData = compressed;
+      }
+      else {
+        method = 0;
+      }
+    }
     const checksum = crc32(new Uint8Array(raw));
-    const compressed = await getDeflate(this.allowStreams, this.allowZlib)(raw);
-    const isSmaller = compressed.byteLength < raw.byteLength;
-    const fileData = isSmaller ? compressed : raw;
-    const method = isSmaller ? 8 : 0;
     const mtime = dateToDos(new Date());
     const nameBytes = new TextEncoder().encode(normName);
 
@@ -152,15 +210,19 @@ export class FileContainer {
     this.index = zipIndex(this.archive);
   }
 
-  stat (name: string) {
-    const normName = name.replace(/^\.\//g, '');
+  /**
+   * Returns metadata for a file, or `undefined` if it does not exist.
+   * @param path The filename or path of the entry to read.
+  */
+  info (path: string): ZipEntryInfo | undefined {
+    const normName = path.replace(/^\.\//g, '');
     const local = this.index.get(normName);
     if (!local) {
       return undefined;
     }
     return {
       name: normName,
-      isDir: name.endsWith('/'),
+      isDir: path.endsWith('/'),
       comment: local.comment,
       size: local.originalSize,
       mtime: dosToDate(local.mtime),
@@ -168,23 +230,24 @@ export class FileContainer {
     };
   }
 
-  hasFile (name: string): boolean {
-    // The convention is to detemine if something is a directory by a trailing slash
-    // when this is the case, we don't report true as if the name is a file.
-    if (!name.endsWith('/')) {
-      return this.hasEntry(name);
-    }
-    return false;
+  /**
+   * Returns `true` if any entry (file or directory) with that name exists.
+   * @param path The filename or path of the entry to read.
+   */
+  has (path: string): boolean {
+    return this.index.has(path.replace(/^\.\//g, ''));
   }
 
-  hasEntry (name: string): boolean {
-    return this.index.has(name.replace(/^\.\//g, ''));
-  }
-
+  /**
+   * Array of all entry names (files and directories) in the archive.
+   */
   get files (): string[] {
     return [ ...this.index.keys() ];
   }
 
+  /**
+   * Serialises the archive to an `ArrayBuffer`.
+   */
   toArrayBuffer (): ArrayBuffer {
     return this.archive;
   }

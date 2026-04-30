@@ -3,3 +3,7 @@ export const PK34 = 0x04034b50; // "PK\003\004"
 export const PK56 = 0x06054b50; // "PK\005\006"
 export const PK66 = 0x06064b50; // "PK\006\006"
 export const PK67 = 0x07064b50; // "PK\006\007"
+
+export const Z_STORE = 'store';
+export const Z_DEFLATE = 'deflate';
+export type ZMode = typeof Z_STORE | typeof Z_DEFLATE;
