@@ -20,10 +20,29 @@
     "lint": "eslint *.js src/",
     "typecheck": "tsc --noEmit",
     "docs": "typedoc && concat-md tempdocs > docs/API.md && rm -rf tempdocs",
-    "test": "vitest run src/*.spec.ts src/**/*.spec.ts",
+    "test": "vitest run",
     "check": "npm run test && npm run lint && npm run typecheck",
     "release": "git diff --exit-code && tsup && npm publish && V=$(jq -r .version package.json) && git tag -a $V -m $V && git push origin $V && gh release create $V --generate-notes"
   },
+  "files": [
+    "dist",
+    "docs",
+    "LICENSE",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/borgar/zip.git"
+  },
+  "bugs": {
+    "url": "https://github.com/borgar/zip/issues"
+  },
+  "keywords": [
+    "zip",
+    "deflate",
+    "inflate",
+    "archive"
+  ],
   "dependencies": {
     "pako": "~2.1.0"
   },

@@ -1,4 +1,5 @@
 import { PK12 } from './constants.ts';
+import type { ExtraField } from './parseExtra.ts';
 
 export type ArchEntry = {
   name: string,
@@ -19,6 +20,7 @@ export type ArchEntry = {
   iattr: number,
   attr: number,
   offset: number,
+  extra: ExtraField[],
 };
 
 export function loadEntryHeader (data: DataView): ArchEntry {
@@ -44,5 +46,6 @@ export function loadEntryHeader (data: DataView): ArchEntry {
     headerSize: 0,
     name: '',
     comment: '',
+    extra: [],
   };
 }

@@ -25,7 +25,7 @@ export function loadMainHeader (data: DataView): MainHead {
     return {
       volumeEntries: readBigUInt64LE(data, 24),
       totalEntries: readBigUInt64LE(data, 32),
-      size: readBigUInt64LE(data, 4),
+      size: readBigUInt64LE(data, 40),
       offset: readBigUInt64LE(data, 48),
       commentLength: 0,
     };

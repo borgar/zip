@@ -2,7 +2,7 @@ import { deflateRaw as deflateJS } from 'pako';
 import type { Buffer } from 'node:buffer';
 import { toArrayBuffer } from './toArrayBuffer.ts';
 
-export type InflateFunc = (data: ArrayBuffer) => ArrayBuffer | Promise<ArrayBuffer>;
+export type DeflateFunc = (data: ArrayBuffer) => ArrayBuffer | Promise<ArrayBuffer>;
 
 // detect zlib (Node, etc.)
 let zlib: null | { deflateRaw: any } = null;
@@ -21,7 +21,7 @@ if (typeof DecompressionStream !== 'undefined' && typeof Response !== 'undefined
   haveStreams = true;
 }
 
-export function getDeflate (allowStreams = false, allowZlib = false): InflateFunc {
+export function getDeflate (allowStreams = false, allowZlib = false): DeflateFunc {
   // prefer DecompressionStream if we have it
   if (allowStreams && haveStreams) {
     return async function deflateBrowser (data: ArrayBuffer) {

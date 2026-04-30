@@ -1,7 +1,7 @@
 {
   "include": [
     "src/**/*",
-    "tests/**/*",
+    "test/**/*",
     "eslint.config.js"
   ],
   "compilerOptions": {
