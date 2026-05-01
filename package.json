@@ -50,13 +50,14 @@
     "archive"
   ],
   "dependencies": {
-    "pako": "~2.1.0"
+    "uzip": "~0.20201231.0"
   },
   "devDependencies": {
     "@borgar/eslint-config": "~4.1.0",
     "@eslint/js": "~10.0.1",
     "@types/node": "~25.6.0",
     "@types/pako": "~2.0.4",
+    "@types/uzip": "~0.20201231.2",
     "concat-md": "~0.5.1",
     "eslint": "~10.2.1",
     "globals": "~17.5.0",

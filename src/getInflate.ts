@@ -1,4 +1,4 @@
-import { inflateRaw as inflateJS } from 'pako';
+import { inflateRaw as inflateJS } from 'uzip';
 import type { Buffer } from 'node:buffer';
 import { toArrayBuffer } from './toArrayBuffer.ts';
 

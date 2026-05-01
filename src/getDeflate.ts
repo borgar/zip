@@ -1,4 +1,4 @@
-import { deflateRaw as deflateJS } from 'pako';
+import { deflateRaw as deflateJS } from 'uzip';
 import type { Buffer } from 'node:buffer';
 import { toArrayBuffer } from './toArrayBuffer.ts';
 
