@@ -55,6 +55,11 @@ describe('fixture tests', () => {
     expect(decode(c)).toBe(content);
   });
 
+  it('tolerates empty archives', async () => {
+    const zip = await loadZip('empty.zip');
+    expect(zip.files).toStrictEqual([]);
+  });
+
   // zip -6 -X deflate.zip Hello.txt
   it('zip with DEFLATE', async () => {
     const zip = await loadZip('deflate.zip');
