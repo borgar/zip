@@ -136,16 +136,23 @@ export class ZipArchive {
    * Adds or replaces a file in the archive.
    *
    * @param path The filename or path of the entry to write.
-   * @param data The data to add to the archive.
+   * @param data The data to add to the archive. Accepts a string, `ArrayBuffer`, `DataView`, or any typed array.
    * @param mode Compression mode. Defaults to `ZMODE_DEFLATE` (8), which applies deflate compression
    *   when it reduces the file size and falls back to store otherwise. Pass `ZMODE_STORE` (0) to
    *   store without compression.
    */
-  async write (path: string, data: string | ArrayBuffer, mode?: ZMode) {
+  async write (path: string, data: string | BufferSource, mode?: ZMode) {
     const normName = path.replace(/^\.\//g, '');
-    const raw: ArrayBuffer = (typeof data === 'string')
-      ? new TextEncoder().encode(data as string).buffer as ArrayBuffer
-      : data;
+    let raw: ArrayBuffer;
+    if (typeof data === 'string') {
+      raw = new TextEncoder().encode(data).buffer;
+    }
+    else if (data instanceof ArrayBuffer) {
+      raw = data;
+    }
+    else {
+      raw = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+    }
 
     let fileData = raw;
     let method = mode === 'store' ? 0 : 8;

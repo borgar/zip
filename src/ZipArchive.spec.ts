@@ -117,6 +117,33 @@ describe('FileContainer', () => {
       expect(new Uint8Array(result!)).toEqual(new Uint8Array([ 0xDE, 0xAD, 0xBE, 0xEF ]));
     });
 
+    it('adds a new file from a Uint8Array', async () => {
+      const zip = new ZipArchive();
+      await zip.write('data.bin', new Uint8Array([ 0xDE, 0xAD, 0xBE, 0xEF ]));
+      expect(new Uint8Array((await zip.read('data.bin'))!)).toEqual(new Uint8Array([ 0xDE, 0xAD, 0xBE, 0xEF ]));
+    });
+
+    it('adds a new file from a Uint8Array that is a slice of a larger buffer', async () => {
+      const zip = new ZipArchive();
+      const full = new Uint8Array([ 0x00, 0xDE, 0xAD, 0xBE, 0xEF, 0x00 ]);
+      await zip.write('data.bin', full.subarray(1, 5));
+      expect(new Uint8Array((await zip.read('data.bin'))!)).toEqual(new Uint8Array([ 0xDE, 0xAD, 0xBE, 0xEF ]));
+    });
+
+    it('adds a new file from a DataView', async () => {
+      const zip = new ZipArchive();
+      const buf = new Uint8Array([ 0xDE, 0xAD, 0xBE, 0xEF ]).buffer;
+      await zip.write('data.bin', new DataView(buf));
+      expect(new Uint8Array((await zip.read('data.bin'))!)).toEqual(new Uint8Array([ 0xDE, 0xAD, 0xBE, 0xEF ]));
+    });
+
+    it('adds a new file from a DataView that is a slice of a larger buffer', async () => {
+      const zip = new ZipArchive();
+      const buf = new Uint8Array([ 0x00, 0xDE, 0xAD, 0xBE, 0xEF, 0x00 ]).buffer;
+      await zip.write('data.bin', new DataView(buf, 1, 4));
+      expect(new Uint8Array((await zip.read('data.bin'))!)).toEqual(new Uint8Array([ 0xDE, 0xAD, 0xBE, 0xEF ]));
+    });
+
     it('replaces an existing file and leaves only one copy', async () => {
       const zip = new ZipArchive();
       await zip.write('a.txt', 'original');
