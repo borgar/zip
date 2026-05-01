@@ -161,21 +161,9 @@ export class ZipArchive {
     const mtime = dateToDos(new Date());
     const nameBytes = new TextEncoder().encode(normName);
 
-    // Collect existing local entries (excluding any being replaced)
-    const localChunks: ArrayBuffer[] = [];
-    const entries: { entry: ArchEntry, localOffset: number }[] = [];
-    let localOffset = 0;
+    const { localChunks, entries, localOffset: baseOffset } = this.#collect(normName);
+    let localOffset = baseOffset;
 
-    for (const [ entryName, entry ] of this.index.entries()) {
-      if (entryName === normName) { continue; }
-      const locHd = loadLocalHeader(new DataView(this.archive, entry.offset, 30));
-      const localSize = 30 + locHd.filenameLength + locHd.extraLength + entry.compressedSize;
-      localChunks.push(this.archive.slice(entry.offset, entry.offset + localSize));
-      entries.push({ entry, localOffset });
-      localOffset += localSize;
-    }
-
-    // Append new local entry
     const newEntry: ArchEntry = {
       name: normName,
       comment: '',
@@ -197,34 +185,11 @@ export class ZipArchive {
       offset: localOffset,
       extra: [],
     };
-    localChunks.push(
-      buildLocalHeader(newEntry),
-      nameBytes.buffer,
-      fileData,
-    );
+    localChunks.push(buildLocalHeader(newEntry), nameBytes.buffer, fileData);
     entries.push({ entry: newEntry, localOffset });
     localOffset += 30 + nameBytes.byteLength + fileData.byteLength;
 
-    // Central directory
-    const cdChunks: ArrayBuffer[] = [];
-    for (const { entry, localOffset: entryOffset } of entries) {
-      const en = new TextEncoder().encode(entry.name);
-      cdChunks.push(buildEntryHeader(entry, entryOffset, en), en.buffer);
-    }
-    const cdSize = cdChunks.reduce((sum, c) => sum + c.byteLength, 0);
-
-    // Assemble
-    const all = [ ...localChunks, ...cdChunks, buildMainHeader(entries.length, cdSize, localOffset) ];
-    const totalSize = all.reduce((sum, c) => sum + c.byteLength, 0);
-    const out = new Uint8Array(totalSize);
-    let pos = 0;
-    for (const chunk of all) {
-      out.set(new Uint8Array(chunk), pos);
-      pos += chunk.byteLength;
-    }
-
-    this.archive = out.buffer;
-    this.index = zipIndex(this.archive);
+    this.#commit(localChunks, entries, localOffset);
   }
 
   /**
@@ -238,20 +203,33 @@ export class ZipArchive {
     if (!this.index.has(normName)) {
       return false;
     }
+    const { localChunks, entries, localOffset } = this.#collect(normName);
+    this.#commit(localChunks, entries, localOffset);
+    return true;
+  }
 
+  /**
+   * Collects all local entry data except the named entry, ready for reassembly.
+   */
+  #collect (exclude: string) {
     const localChunks: ArrayBuffer[] = [];
     const entries: { entry: ArchEntry, localOffset: number }[] = [];
     let localOffset = 0;
-
     for (const [ entryName, entry ] of this.index.entries()) {
-      if (entryName === normName) { continue; }
+      if (entryName === exclude) { continue; }
       const locHd = loadLocalHeader(new DataView(this.archive, entry.offset, 30));
       const localSize = 30 + locHd.filenameLength + locHd.extraLength + entry.compressedSize;
       localChunks.push(this.archive.slice(entry.offset, entry.offset + localSize));
       entries.push({ entry, localOffset });
       localOffset += localSize;
     }
+    return { localChunks, entries, localOffset };
+  }
 
+  /**
+   * Builds the central directory and EOCD, assembles the full archive, and updates internal state.
+   */
+  #commit (localChunks: ArrayBuffer[], entries: { entry: ArchEntry, localOffset: number }[], localOffset: number) {
     const cdChunks: ArrayBuffer[] = [];
     for (const { entry, localOffset: entryOffset } of entries) {
       const en = new TextEncoder().encode(entry.name);
@@ -267,10 +245,8 @@ export class ZipArchive {
       out.set(new Uint8Array(chunk), pos);
       pos += chunk.byteLength;
     }
-
     this.archive = out.buffer;
     this.index = zipIndex(this.archive);
-    return true;
   }
 
   /**
