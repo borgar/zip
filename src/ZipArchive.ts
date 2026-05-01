@@ -42,8 +42,9 @@ export type ZipEntryInfo = {
  * Reads and writes ZIP archives.
  */
 export class ZipArchive {
-  private index: Map<string, ArchEntry>;
-  private archive: ArrayBuffer;
+  #index: Map<string, ArchEntry>;
+  #archive: ArrayBuffer;
+
   /**
    * Permit using `node:zlib` for deflate compression/decompression when available.
    */
@@ -64,12 +65,12 @@ export class ZipArchive {
    */
   constructor (archive?: ArrayBuffer) {
     if (archive) {
-      this.index = zipIndex(archive);
-      this.archive = archive;
+      this.#index = zipIndex(archive);
+      this.#archive = archive;
     }
     else {
-      this.index = new Map();
-      this.archive = new ArrayBuffer(40);
+      this.#index = new Map();
+      this.#archive = new ArrayBuffer(40);
     }
   }
 
@@ -83,7 +84,7 @@ export class ZipArchive {
    */
   async read (path: string): Promise<ArrayBuffer | undefined> {
     const normName = path.replace(/^\.\//g, '');
-    const fd = this.index.get(normName);
+    const fd = this.#index.get(normName);
     if (!fd) {
       return;
     }
@@ -93,16 +94,16 @@ export class ZipArchive {
     }
 
     const { offset, compressedSize, crc } = fd;
-    const hd = loadLocalHeader(new DataView(this.archive, offset, 30));
+    const hd = loadLocalHeader(new DataView(this.#archive, offset, 30));
     const dataOffset = offset + 30 + hd.filenameLength + hd.extraLength;
     let uncompressed: ArrayBuffer;
     if (fd.method === 8) {
       uncompressed = await getInflate(this.allowStreams, this.allowZlib)(
-        this.archive.slice(dataOffset, dataOffset + compressedSize),
+        this.#archive.slice(dataOffset, dataOffset + compressedSize),
       );
     }
     else if (fd.method === 0) {
-      uncompressed = this.archive.slice(dataOffset, dataOffset + compressedSize);
+      uncompressed = this.#archive.slice(dataOffset, dataOffset + compressedSize);
     }
     else {
       throw new Error('Unsupported compression method: ' + fd.method);
@@ -200,7 +201,7 @@ export class ZipArchive {
    */
   delete (path: string): boolean {
     const normName = path.replace(/^\.\//g, '');
-    if (!this.index.has(normName)) {
+    if (!this.#index.has(normName)) {
       return false;
     }
     const { localChunks, entries, localOffset } = this.#collect(normName);
@@ -215,11 +216,11 @@ export class ZipArchive {
     const localChunks: ArrayBuffer[] = [];
     const entries: { entry: ArchEntry, localOffset: number }[] = [];
     let localOffset = 0;
-    for (const [ entryName, entry ] of this.index.entries()) {
+    for (const [ entryName, entry ] of this.#index.entries()) {
       if (entryName === exclude) { continue; }
-      const locHd = loadLocalHeader(new DataView(this.archive, entry.offset, 30));
+      const locHd = loadLocalHeader(new DataView(this.#archive, entry.offset, 30));
       const localSize = 30 + locHd.filenameLength + locHd.extraLength + entry.compressedSize;
-      localChunks.push(this.archive.slice(entry.offset, entry.offset + localSize));
+      localChunks.push(this.#archive.slice(entry.offset, entry.offset + localSize));
       entries.push({ entry, localOffset });
       localOffset += localSize;
     }
@@ -245,8 +246,8 @@ export class ZipArchive {
       out.set(new Uint8Array(chunk), pos);
       pos += chunk.byteLength;
     }
-    this.archive = out.buffer;
-    this.index = zipIndex(this.archive);
+    this.#archive = out.buffer;
+    this.#index = zipIndex(this.#archive);
   }
 
   /**
@@ -257,7 +258,7 @@ export class ZipArchive {
   */
   info (path: string): ZipEntryInfo | undefined {
     const normName = path.replace(/^\.\//g, '');
-    const local = this.index.get(normName);
+    const local = this.#index.get(normName);
     if (!local) {
       return undefined;
     }
@@ -276,20 +277,20 @@ export class ZipArchive {
    * @param path The filename or path of the entry to read.
    */
   has (path: string): boolean {
-    return this.index.has(path.replace(/^\.\//g, ''));
+    return this.#index.has(path.replace(/^\.\//g, ''));
   }
 
   /**
    * Array of all entry names (files and directories) in the archive.
    */
   get files (): string[] {
-    return [ ...this.index.keys() ];
+    return [ ...this.#index.keys() ];
   }
 
   /**
    * Serialises the archive to an `ArrayBuffer`.
    */
   toArrayBuffer (): ArrayBuffer {
-    return this.archive;
+    return this.#archive;
   }
 }
