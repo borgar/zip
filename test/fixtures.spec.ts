@@ -11,17 +11,11 @@ async function loadZip (fileName: string): Promise<ZipArchive> {
   return new ZipArchive(toArrayBuffer(bin));
 }
 
-async function extractFileFrom (zipName: string, fileName: string, mode: 'utf8' | 'binary' = 'utf8'): Promise<unknown> {
-  const bin = await readFile(join(FIXTURE_DIR, zipName));
-  const zip = new ZipArchive(toArrayBuffer(bin));
-  return zip.read(fileName, mode);
-}
-
 function encode (str: string): ArrayBuffer {
   return new TextEncoder().encode(str).buffer;
 }
 
-function decode (data: ArrayBuffer | null): string | null {
+function decode (data?: ArrayBuffer): string | null {
   return data != null ? new TextDecoder().decode(data) : null;
 }
 
@@ -56,7 +50,7 @@ describe('fixture tests', () => {
     const content = 'Hello World\n';
     expect(await zip.readText('Hello.txt')).toBe(content);
     expect(await zip.read('Hello.txt')).toStrictEqual(encode(content));
-    const c = await zip.read('Hello.txt', 'binary');
+    const c = await zip.read('Hello.txt');
     expect(c).toStrictEqual(encode(content));
     expect(decode(c)).toBe(content);
   });

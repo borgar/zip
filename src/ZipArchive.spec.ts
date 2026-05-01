@@ -69,7 +69,7 @@ describe('FileContainer', () => {
     });
 
     it('returns null for a missing file', async () => {
-      expect(await zip.read('missing.txt')).toBeNull();
+      expect(await zip.read('missing.txt')).toBeUndefined();
     });
 
     it('reads a file as a utf8 string', async () => {
@@ -237,7 +237,7 @@ describe('FileContainer', () => {
       const zip = new ZipArchive();
       await zip.write('a.txt', 'hello');
       zip.delete('a.txt');
-      expect(await zip.read('a.txt')).toBeNull();
+      expect(await zip.read('a.txt')).toBeUndefined();
     });
 
     it('preserves other entries when deleting one', async () => {
