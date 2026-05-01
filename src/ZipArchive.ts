@@ -12,21 +12,35 @@ import { zipIndex } from './zipIndex.ts';
 
 /** Metadata returned by {@link ZipArchive.info}. */
 export type ZipEntryInfo = {
-  /** Entry name. */
+  /**
+   * Entry name/path.
+   */
   name: string,
-  /** `true` if the entry is a directory. */
+  /**
+   * `true` if the entry is a directory.
+   */
   isDir: boolean,
-  /** Entry comment string, or an empty string if none. */
+  /**
+   * Entry comment string, or an empty string if none.
+   */
   comment: string,
-  /** Uncompressed size in bytes. */
+  /**
+   * Uncompressed size in bytes.
+   */
   size: number,
-  /** Last-modified time. */
+  /**
+   * Last-modified time.
+   */
   mtime: Date,
-  /** CRC-32 checksum of the uncompressed content. */
+  /**
+   * CRC-32 checksum of the uncompressed content.
+   */
   crc: number,
 };
 
-/** Reads and writes ZIP archives. */
+/**
+ * Reads and writes ZIP archives.
+ */
 export class ZipArchive {
   private index: Map<string, ArchEntry>;
   private archive: ArrayBuffer;
@@ -60,17 +74,18 @@ export class ZipArchive {
   }
 
   /**
-   * Reads a file from the archive. Returns `null` if the file does not exist.
+   * Reads a file from the archive. Returns `undefined` if the file does not exist.
    *
    * @param path The filename or path of the entry to read.
    * @param encoding Set the encoding of the return data.
+   * @returns The entry's data in an ArrayBuffer` or undefined if the entry does not exist.
    * @throws if the file is encrypted or uses an unsupported compression method.
    */
-  async read (path: string): Promise<ArrayBuffer | null> {
+  async read (path: string): Promise<ArrayBuffer | undefined> {
     const normName = path.replace(/^\.\//g, '');
     const fd = this.index.get(normName);
     if (!fd) {
-      return null;
+      return;
     }
     const isEncrypted = fd.flags & 0x001;
     if (isEncrypted) {
@@ -105,19 +120,21 @@ export class ZipArchive {
   }
 
   /**
-   * Reads a textfile from the archive. Returns `null` if the file does not exist.
+   * Reads a textfile from the archive. Returns `undefined` if the file does not exist.
    *
    * @param path The filename or path of the entry to read.
+   * @returns The entry's data as a string.
    * @throws if the file is encrypted or uses an unsupported compression method.
    */
-  async readText (path: string): Promise<string | null> {
+  async readText (path: string): Promise<string | undefined> {
     const data = await this.read(path);
     return data && new TextDecoder().decode(data);
   }
 
   /**
    * Adds or replaces a file in the archive.
-   * @param path The filename or path of the entry to read.
+   *
+   * @param path The filename or path of the entry to write.
    * @param data The data to add to the archive.
    * @param mode Compression mode. Defaults to `ZMODE_DEFLATE` (8), which applies deflate compression
    *   when it reduces the file size and falls back to store otherwise. Pass `ZMODE_STORE` (0) to
@@ -258,7 +275,9 @@ export class ZipArchive {
 
   /**
    * Returns metadata for a file, or `undefined` if it does not exist.
+   *
    * @param path The filename or path of the entry to read.
+   * @returns An info entry for the given entitiy, or `undefined` if entitiy does not exist.
   */
   info (path: string): ZipEntryInfo | undefined {
     const normName = path.replace(/^\.\//g, '');
