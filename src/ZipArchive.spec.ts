@@ -214,6 +214,59 @@ describe('FileContainer', () => {
     });
   });
 
+  describe('delete', () => {
+    it('returns false for a missing entry', () => {
+      const zip = new ZipArchive();
+      expect(zip.delete('nope.txt')).toBe(false);
+    });
+
+    it('returns true when an entry is removed', async () => {
+      const zip = new ZipArchive();
+      await zip.write('a.txt', 'hello');
+      expect(zip.delete('a.txt')).toBe(true);
+    });
+
+    it('removes the entry from files', async () => {
+      const zip = new ZipArchive();
+      await zip.write('a.txt', 'hello');
+      zip.delete('a.txt');
+      expect(zip.files).not.toContain('a.txt');
+    });
+
+    it('makes the entry unreadable after deletion', async () => {
+      const zip = new ZipArchive();
+      await zip.write('a.txt', 'hello');
+      zip.delete('a.txt');
+      expect(await zip.read('a.txt')).toBeNull();
+    });
+
+    it('preserves other entries when deleting one', async () => {
+      const zip = new ZipArchive();
+      await zip.write('a.txt', 'aaa');
+      await zip.write('b.txt', 'bbb');
+      zip.delete('a.txt');
+      expect(zip.has('a.txt')).toBe(false);
+      expect(await zip.readText('b.txt')).toBe('bbb');
+    });
+
+    it('normalises a leading ./ in the path', async () => {
+      const zip = new ZipArchive();
+      await zip.write('a.txt', 'hello');
+      expect(zip.delete('./a.txt')).toBe(true);
+      expect(zip.has('a.txt')).toBe(false);
+    });
+
+    it('produces a valid archive after deletion', async () => {
+      const zip = new ZipArchive();
+      await zip.write('a.txt', 'aaa');
+      await zip.write('b.txt', 'bbb');
+      zip.delete('a.txt');
+      const zip2 = new ZipArchive(zip.toArrayBuffer());
+      expect(zip2.files).toEqual([ 'b.txt' ]);
+      expect(await zip2.readText('b.txt')).toBe('bbb');
+    });
+  });
+
   describe('stat', () => {
     it('returns undefined for a missing entry', () => {
       expect(new ZipArchive().info('nope.txt')).toBeUndefined();

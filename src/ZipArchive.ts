@@ -211,6 +211,52 @@ export class ZipArchive {
   }
 
   /**
+   * Removes an entry from the archive.
+   *
+   * @param path The filename or path of the entry to remove.
+   * @returns `true` if the entry was found and removed, `false` if it did not exist.
+   */
+  delete (path: string): boolean {
+    const normName = path.replace(/^\.\//g, '');
+    if (!this.index.has(normName)) {
+      return false;
+    }
+
+    const localChunks: ArrayBuffer[] = [];
+    const entries: { entry: ArchEntry, localOffset: number }[] = [];
+    let localOffset = 0;
+
+    for (const [ entryName, entry ] of this.index.entries()) {
+      if (entryName === normName) { continue; }
+      const locHd = loadLocalHeader(new DataView(this.archive, entry.offset, 30));
+      const localSize = 30 + locHd.filenameLength + locHd.extraLength + entry.compressedSize;
+      localChunks.push(this.archive.slice(entry.offset, entry.offset + localSize));
+      entries.push({ entry, localOffset });
+      localOffset += localSize;
+    }
+
+    const cdChunks: ArrayBuffer[] = [];
+    for (const { entry, localOffset: entryOffset } of entries) {
+      const en = new TextEncoder().encode(entry.name);
+      cdChunks.push(buildEntryHeader(entry, entryOffset, en), en.buffer);
+    }
+    const cdSize = cdChunks.reduce((sum, c) => sum + c.byteLength, 0);
+
+    const all = [ ...localChunks, ...cdChunks, buildMainHeader(entries.length, cdSize, localOffset) ];
+    const totalSize = all.reduce((sum, c) => sum + c.byteLength, 0);
+    const out = new Uint8Array(totalSize);
+    let pos = 0;
+    for (const chunk of all) {
+      out.set(new Uint8Array(chunk), pos);
+      pos += chunk.byteLength;
+    }
+
+    this.archive = out.buffer;
+    this.index = zipIndex(this.archive);
+    return true;
+  }
+
+  /**
    * Returns metadata for a file, or `undefined` if it does not exist.
    * @param path The filename or path of the entry to read.
   */

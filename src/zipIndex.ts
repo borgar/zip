@@ -24,7 +24,7 @@ export function zipIndex (data: ArrayBuffer): Map<string, ArchEntry> {
     if (dataView.getUint32(i, true) === PK56) {
       endOffset = i;
       endStart = i + 22;
-      n = i - 20;
+      n = Math.max(max, i - 20);
       continue;
     }
     if (dataView.getUint32(i, true) === PK67) {
