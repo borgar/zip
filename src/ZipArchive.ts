@@ -77,8 +77,7 @@ export class ZipArchive {
    * Reads a file from the archive. Returns `undefined` if the file does not exist.
    *
    * @param path The filename or path of the entry to read.
-   * @param encoding Set the encoding of the return data.
-   * @returns The entry's data in an ArrayBuffer` or undefined if the entry does not exist.
+   * @returns The entry's data in an ArrayBuffer` or `undefined` if the entry does not exist.
    * @throws if the file is encrypted or uses an unsupported compression method.
    */
   async read (path: string): Promise<ArrayBuffer | undefined> {
@@ -123,7 +122,7 @@ export class ZipArchive {
    * Reads a textfile from the archive. Returns `undefined` if the file does not exist.
    *
    * @param path The filename or path of the entry to read.
-   * @returns The entry's data as a string.
+   * @returns The entry's data in an ArrayBuffer` or `undefined` if the entry does not exist.
    * @throws if the file is encrypted or uses an unsupported compression method.
    */
   async readText (path: string): Promise<string | undefined> {
