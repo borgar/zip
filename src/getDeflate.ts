@@ -1,4 +1,3 @@
-import { deflateRaw as deflateRawJS, inflateRaw as inflateRawJS } from 'uzip';
 import type { Buffer } from 'node:buffer';
 import { toArrayBuffer } from './toArrayBuffer.ts';
 
@@ -65,8 +64,9 @@ export function getDeflate (allowStreams = false, allowZlib = false): DeflateFun
     return getZlib(true);
   }
   // default to using a pure JS zlib implementation
-  return function deflateJS (data: ArrayBuffer): ArrayBuffer {
-    return toArrayBuffer(deflateRawJS(new Uint8Array(data)));
+  return async function deflateJS (data: ArrayBuffer): Promise<ArrayBuffer> {
+    const uzip = await import('uzip');
+    return toArrayBuffer(uzip.deflateRaw(new Uint8Array(data)));
   };
 }
 
@@ -80,7 +80,8 @@ export function getInflate (allowStreams = false, allowZlib = false): DeflateFun
     return getZlib(false);
   }
   // default to using a pure JS zlib implementation
-  return function inflatePako (data: ArrayBuffer): ArrayBuffer {
-    return toArrayBuffer(inflateRawJS(new Uint8Array(data)));
+  return async function inflatePako (data: ArrayBuffer): Promise<ArrayBuffer> {
+    const uzip = await import('uzip');
+    return toArrayBuffer(uzip.inflateRaw(new Uint8Array(data)));
   };
 }
