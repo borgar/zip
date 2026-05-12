@@ -33,6 +33,15 @@ const zip = new ZipArchive();
 await zip.write('hello.txt', text);
 await zip.write('data.bin', data);
 const output = zip.toArrayBuffer();
+
+// Trigger a browser download
+const zipBlob = new Blob([ output ]);
+const urlObject = URL.createObjectURL(zipBlob);
+const a = document.createElement('a');
+a.href = urlObject;
+a.download = 'MyFilename.zip';
+a.click();
+URL.revokeObjectURL(urlObject);
 ```
 
 ## API
