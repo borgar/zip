@@ -1,6 +1,6 @@
 {
   "name": "@borgar/zip",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A library to manipulate zip files, using native implementations for compression where available.",
   "type": "module",
   "source": "src/index.ts",
@@ -54,17 +54,17 @@
   "devDependencies": {
     "@borgar/eslint-config": "~4.1.0",
     "@eslint/js": "~10.0.1",
-    "@types/node": "~25.6.0",
+    "@types/node": "~26.6.5",
     "@types/pako": "~2.0.4",
     "@types/uzip": "~0.20201231.2",
     "concat-md": "~0.5.1",
-    "eslint": "~10.2.1",
-    "globals": "~17.5.0",
-    "tsdown": "~0.21.10",
-    "typedoc": "~0.28.19",
-    "typedoc-plugin-markdown": "~4.11.0",
+    "eslint": "~10.13.0",
+    "globals": "~17.13.0",
+    "tsdown": "~0.23.1",
+    "typedoc": "~0.28.20",
+    "typedoc-plugin-markdown": "~4.14.1",
     "typescript": "~6.0.3",
-    "typescript-eslint": "~8.59.1",
-    "vitest": "~4.1.5"
+    "typescript-eslint": "~8.72.0",
+    "vitest": "~5.0.5"
   }
 }
