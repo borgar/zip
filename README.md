@@ -32,6 +32,12 @@ const data = await zip.read('image.png'); // ArrayBuffer([ 89 50 4E 47 0D 0A 1A 
 const zip = new ZipArchive();
 await zip.write('hello.txt', text);
 await zip.write('data.bin', data);
+
+// Or write without awaiting each call. Entries are added in call order.
+zip.write('a.txt', 'a');
+zip.write('b.txt', 'b');
+await zip.done(); // waits for all pending writes
+
 const output = zip.toArrayBuffer();
 
 // Trigger a browser download

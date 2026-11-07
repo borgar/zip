@@ -77,7 +77,7 @@ Array of all entry names (files and directories) in the archive.
 delete(path: string): boolean;
 ```
 
-Removes an entry from the archive.
+Removes an entry from the archive. Also cancels any pending writes of the entry.
 
 #### Parameters
 
@@ -89,7 +89,27 @@ Removes an entry from the archive.
 
 `boolean`
 
-`true` if the entry was found and removed, `false` if it did not exist.
+`true` if the entry was found and removed, or had a pending write, `false` otherwise.
+
+***
+
+### done()
+
+```ts
+done(): Promise<void>;
+```
+
+Waits for all pending writes to be added to the archive.
+
+#### Returns
+
+`Promise`\<`void`\>
+
+A promise that resolves when all pending writes are in the archive.
+
+#### Throws
+
+the first error from any write since the last call to `done()`.
 
 ***
 
@@ -207,10 +227,15 @@ Serialises the archive to an `ArrayBuffer`.
 write(
    path: string, 
    data: string | BufferSource, 
-mode?: ZMode): Promise<void>;
+   mode?: ZMode
+): Promise<void>;
 ```
 
 Adds or replaces a file in the archive.
+
+Entries are added in the order `write()` is called, even if you don't await each call.
+Until a write completes, the archive doesn't include it: await the write, or [done](#done),
+before you call `read()`, `info()`, `has()`, `files`, or `toArrayBuffer()`.
 
 #### Parameters
 

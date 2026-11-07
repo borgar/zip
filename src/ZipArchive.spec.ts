@@ -378,6 +378,81 @@ describe('FileContainer', () => {
     }
   });
 
+  describe('write ordering', () => {
+    const combos = [
+      { allowZlib: false, allowStreams: false },
+      { allowZlib: true, allowStreams: false },
+      { allowZlib: false, allowStreams: true },
+      { allowZlib: true, allowStreams: true },
+    ];
+
+    for (const { allowZlib, allowStreams } of combos) {
+      it(`keeps call order with allowZlib=${allowZlib} allowStreams=${allowStreams}`, async () => {
+        const zip = new ZipArchive();
+        zip.allowZlib = allowZlib;
+        zip.allowStreams = allowStreams;
+        void zip.write('big.txt', 'hello world '.repeat(100_000));
+        void zip.write('small.txt', 'hi');
+        void zip.write('stored.txt', 'stored', Z_STORE);
+        void zip.write('medium.txt', 'hello world '.repeat(100));
+        await zip.done();
+        expect(zip.files).toEqual([ 'big.txt', 'small.txt', 'stored.txt', 'medium.txt' ]);
+      });
+    }
+
+    it('uses the last value when writing the same path twice', async () => {
+      const zip = new ZipArchive();
+      void zip.write('a.txt', 'first '.repeat(10_000));
+      void zip.write('a.txt', 'second');
+      await zip.done();
+      expect(zip.files).toEqual([ 'a.txt' ]);
+      expect(await zip.readText('a.txt')).toBe('second');
+    });
+
+    it('cancels a pending write when the path is deleted', async () => {
+      const zip = new ZipArchive();
+      const write = zip.write('a.txt', 'hello');
+      expect(zip.delete('a.txt')).toBe(true);
+      await write;
+      await zip.done();
+      expect(zip.has('a.txt')).toBe(false);
+    });
+
+    it('commits a write made after a delete of the same path', async () => {
+      const zip = new ZipArchive();
+      await zip.write('a.txt', 'first');
+      expect(zip.delete('a.txt')).toBe(true);
+      void zip.write('a.txt', 'second');
+      await zip.done();
+      expect(await zip.readText('a.txt')).toBe('second');
+    });
+
+    it('uses the final value after write, delete, write, and write of the same path', async () => {
+      const zip = new ZipArchive();
+      void zip.write('a.txt', 'first '.repeat(100_000));
+      expect(zip.delete('a.txt')).toBe(true);
+      void zip.write('a.txt', 'second '.repeat(10_000));
+      void zip.write('a.txt', 'third');
+      await zip.done();
+      expect(zip.files).toEqual([ 'a.txt' ]);
+      expect(await zip.readText('a.txt')).toBe('third');
+    });
+
+    it('resolves done() when nothing is pending', async () => {
+      await expect(new ZipArchive().done()).resolves.toBeUndefined();
+    });
+
+    it('reports a failed write from done() and keeps going', async () => {
+      const zip = new ZipArchive();
+      const failed = zip.write('bad.txt', null as unknown as string);
+      void zip.write('good.txt', 'hello');
+      await expect(failed).rejects.toThrow(TypeError);
+      await expect(zip.done()).rejects.toThrow(TypeError);
+      expect(zip.files).toEqual([ 'good.txt' ]);
+      await expect(zip.done()).resolves.toBeUndefined();
+    });
+  });
+
   describe('toArrayBuffer', () => {
     it('returns an ArrayBuffer', () => {
       expect(new ZipArchive().toArrayBuffer()).toBeInstanceOf(ArrayBuffer);

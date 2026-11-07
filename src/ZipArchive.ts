@@ -37,12 +37,23 @@ export type ZipEntryInfo = {
   crc: number,
 };
 
+type PreparedWrite = {
+  raw: ArrayBuffer,
+  fileData: ArrayBuffer,
+  method: number,
+  checksum: number,
+  mtime: number,
+};
+
 /**
  * Reads and writes ZIP archives.
  */
 export class ZipArchive {
   #index: Map<string, ArchEntry>;
   #archive: ArrayBuffer;
+  #queue: Promise<void> = Promise.resolve();
+  #pending = new Map<string, symbol>();
+  #errors: unknown[] = [];
 
   /**
    * Permit using `node:zlib` for deflate compression/decompression when available.
@@ -133,14 +144,60 @@ export class ZipArchive {
   /**
    * Adds or replaces a file in the archive.
    *
+   * Entries are added in the order `write()` is called, even if you don't await each call.
+   * Until a write completes, the archive doesn't include it: await the write, or {@link done},
+   * before you call `read()`, `info()`, `has()`, `files`, or `toArrayBuffer()`.
+   *
    * @param path The filename or path of the entry to write.
    * @param data The data to add to the archive. Accepts a string, `ArrayBuffer`, `DataView`, or any typed array.
    * @param mode Compression mode. Defaults to `ZMODE_DEFLATE` (8), which applies deflate compression
    *   when it reduces the file size and falls back to store otherwise. Pass `ZMODE_STORE` (0) to
    *   store without compression.
    */
-  async write (path: string, data: string | BufferSource, mode?: ZMode) {
+  write (path: string, data: string | BufferSource, mode?: ZMode): Promise<void> {
     const normName = path.replace(/^\.\//g, '');
+    const token = Symbol(normName);
+    this.#pending.set(normName, token);
+    // compression starts now, so concurrent writes overlap, but commits run in call order
+    const prepared = this.#prepare(data, mode);
+    const op = this.#queue.then(async () => {
+      try {
+        const result = await prepared;
+        // a later write or delete of the same path supersedes this one
+        if (this.#pending.get(normName) === token) {
+          this.#commitWrite(normName, result);
+        }
+      }
+      finally {
+        if (this.#pending.get(normName) === token) {
+          this.#pending.delete(normName);
+        }
+      }
+    });
+    // keep the queue going after a failure, and report the error from done()
+    this.#queue = op.catch(err => { this.#errors.push(err); });
+    return op;
+  }
+
+  /**
+   * Waits for all pending writes to be added to the archive.
+   *
+   * @returns A promise that resolves when all pending writes are in the archive.
+   * @throws the first error from any write since the last call to `done()`.
+   */
+  async done (): Promise<void> {
+    await this.#queue;
+    if (this.#errors.length) {
+      const [ error ] = this.#errors;
+      this.#errors = [];
+      throw error;
+    }
+  }
+
+  /**
+   * Converts and compresses data for a write.
+   */
+  async #prepare (data: string | BufferSource, mode?: ZMode): Promise<PreparedWrite> {
     let raw: ArrayBuffer;
     if (typeof data === 'string') {
       raw = new TextEncoder().encode(data).buffer;
@@ -165,6 +222,13 @@ export class ZipArchive {
     }
     const checksum = crc32(new Uint8Array(raw));
     const mtime = dateToDos(new Date());
+    return { raw, fileData, method, checksum, mtime };
+  }
+
+  /**
+   * Adds or replaces a prepared entry in the archive.
+   */
+  #commitWrite (normName: string, { raw, fileData, method, checksum, mtime }: PreparedWrite) {
     const nameBytes = new TextEncoder().encode(normName);
 
     const { localChunks, entries, localOffset: baseOffset } = this.#collect(normName);
@@ -199,15 +263,16 @@ export class ZipArchive {
   }
 
   /**
-   * Removes an entry from the archive.
+   * Removes an entry from the archive. Also cancels any pending writes of the entry.
    *
    * @param path The filename or path of the entry to remove.
-   * @returns `true` if the entry was found and removed, `false` if it did not exist.
+   * @returns `true` if the entry was found and removed, or had a pending write, `false` otherwise.
    */
   delete (path: string): boolean {
     const normName = path.replace(/^\.\//g, '');
+    const hadPending = this.#pending.delete(normName);
     if (!this.#index.has(normName)) {
-      return false;
+      return hadPending;
     }
     const { localChunks, entries, localOffset } = this.#collect(normName);
     this.#commit(localChunks, entries, localOffset);
