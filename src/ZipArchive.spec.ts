@@ -451,6 +451,16 @@ describe('FileContainer', () => {
       expect(zip.files).toEqual([ 'good.txt' ]);
       await expect(zip.done()).resolves.toBeUndefined();
     });
+
+    it('reports a write that fails while earlier writes are still pending', async () => {
+      const zip = new ZipArchive();
+      for (let i = 0; i < 20; i++) {
+        void zip.write(`big${i}.txt`, 'hello world '.repeat(100_000));
+      }
+      void zip.write('bad.txt', null as unknown as string);
+      await expect(zip.done()).rejects.toThrow(TypeError);
+      expect(zip.files).toHaveLength(20);
+    });
   });
 
   describe('toArrayBuffer', () => {

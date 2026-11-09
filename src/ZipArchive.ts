@@ -160,6 +160,11 @@ export class ZipArchive {
     this.#pending.set(normName, token);
     // compression starts now, so concurrent writes overlap, but commits run in call order
     const prepared = this.#prepare(data, mode);
+    // if preparation fails while earlier writes are still pending, nothing awaits `prepared`
+    // until the queue reaches this write, and Node treats the rejection as unhandled and exits.
+    // a no-op handler prevents that, and `await prepared` below still throws the error, so
+    // it rejects this write and is reported by done()
+    prepared.catch(() => {});
     const op = this.#queue.then(async () => {
       try {
         const result = await prepared;
